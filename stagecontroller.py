@@ -20,6 +20,9 @@ class StageController:
         self.ser = None
 
         self.current_position = [0, 0, 0]
+    
+    def get_scale(self):
+        return [STEPS_PER_MM, STEPS_PER_MM, STEPS_PER_MM_Z]
 
 
     def get_position(self):
@@ -58,7 +61,7 @@ class StageController:
         doneZ = False
         while True:
             message = self.read_message()
-            print(message)
+            # print(message)
             message = message[0] if message != None and message != "" else ""
             if message == 'x':
                 doneX = True
@@ -100,7 +103,7 @@ class StageController:
         # Send the command to move the stage by the remainder
         commandX = f"a {remainderX} {directionX} {interval} {home} 0\n"
         commandY = f"a {remainderY} {directionY} {interval} {home} 1\n"
-        commandZ = f"a {remainderZ} {directionZ} {interval} {home} 2\n"
+        commandZ = f"a {remainderZ} {directionZ} {interval * 2} {home} 2\n"
 
         self.send_command(commandX)
         self.send_command(commandY)
@@ -113,7 +116,7 @@ class StageController:
             # command: a [steps] [direction] [interval] [home] [motor]
             commandX = f"a {MAX_STEPS_PER_COMMAND if i < cycleX else 0} {directionX} {interval} {home} 0\n"
             commandY = f"a {MAX_STEPS_PER_COMMAND if i < cycleY else 0} {directionY} {interval} {home} 1\n"
-            commandZ = f"a {MAX_STEPS_PER_COMMAND if i < cycleZ else 0} {directionZ} {interval} {home} 2\n"
+            commandZ = f"a {MAX_STEPS_PER_COMMAND if i < cycleZ else 0} {directionZ} {interval * 2} {home} 2\n"
             self.send_command(commandX)
             self.send_command(commandY)
             self.send_command(commandZ)
