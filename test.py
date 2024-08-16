@@ -51,27 +51,55 @@ def focusCameraByZ(controller):
     scale = controller.get_scale()
     current_pos = controller.get_position()
 
-    imagesPerScale = 5
-    numScales = 8
-
+    
     minZ = 0
     maxZ = 60
 
-    # Maximize focus score, search along grid, then refine
+    numImages = 40
+    division = (maxZ - minZ) / numImages
     bestFocus = 0
     bestZ = 0
-    zAccumulator = (maxZ - minZ) / 2
 
+    for i in range(numImages + 1):
+        z = minZ + i * division
+        print("Moving to z = {}".format(z))
+        controller.move_to(current_pos[0], current_pos[1], z)
+        img = takePicture(controller, camera, save=False)
+
+        if img is None:
+            break
+
+        focus = get_focus_score(img)
+        
+        print("Focus score: {}".format(focus))
+
+        if focus > bestFocus:
+            bestFocus = focus
+            bestZ = z
+
+    imagesPerScale = 4
+    numScales = 8
+
+    # Maximize focus score, search along grid, then refine
+    zAccumulator = bestZ
+    bestFocus = 0
+    bestZ = 0
+
+    refineRegion = 4
+
+    hasError = False
+
+    
     for i in range(numScales):
-        division = (maxZ - minZ) / ((imagesPerScale) ** (i * 0.5 + 1))
+        division = refineRegion / (((imagesPerScale) ** (i * 0.5 + 1)))
 
         if division < 1/scale[2]:
             division = 1/scale[2]
 
         bestCurrentFocus = 0
         bestCurrentZ = 0
-        for j in range(imagesPerScale):
-            z = minZ + (j - imagesPerScale / 2) * division + zAccumulator
+        for j in range(imagesPerScale + 1):
+            z = (j - imagesPerScale / 2) * division + zAccumulator
             if z < minZ or z > maxZ:
                 continue
 
@@ -79,6 +107,12 @@ def focusCameraByZ(controller):
             controller.move_to(current_pos[0], current_pos[1], z)
             time.sleep(3)
             img = takePicture(controller, camera, save=False)
+
+            if img is None:
+                hasError = True
+                break
+                
+
             focus = get_focus_score(img)
             
             print("Focus score: {}".format(focus))
@@ -90,6 +124,9 @@ def focusCameraByZ(controller):
                 bestCurrentFocus = focus
                 bestCurrentZ = z
         
+        if hasError:
+            break
+
         zAccumulator = bestCurrentZ
         if bestCurrentFocus > bestFocus:
             bestZ = bestCurrentZ
@@ -123,6 +160,10 @@ def takePicture(controller, cameraIn = None, filename = None, save = True):
         else:
             camera = cv.VideoCapture(0)
         img = camera.read()[1]
+
+        # Rotate image 90
+        img = cv.rotate(img, cv.ROTATE_90_CLOCKWISE)
+
         # Save image
         if not filename:
             filename = "images/image_{}_{}_{}.png".format(x, y, z)
@@ -151,7 +192,11 @@ def main():
     controller.connect()
 
     # Home the stage initially
-    controller.home()
+    moveOrStay = input("Do you want to stay here? Current position will be set to 0").strip()
+    if moveOrStay.lower() == 'stay':
+        controller.current_position = [0, 0, 0]
+    else:
+        controller.home()
 
     while True:
         try:
@@ -215,6 +260,11 @@ def main():
                         x, y, z = map(float, coords)
                         # Move the stage to the specified coordinates
                         print(f"Moving to coordinates ({x}, {y}, {z})...")
+
+                        # Bounds, 0 to 300 for x y, 0 to 60 for z
+                        if x < 0 or x > 300 or y < 0 or y > 300 or z < 0 or z > 60:
+                            print("Invalid coordinates. Please enter values within the bounds of the stage.")
+                            continue
                         controller.move_to(x, y, z, interval=2)
                     except ValueError:
                         print("Invalid coordinates. Please enter three numeric values.")
