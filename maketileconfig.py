@@ -89,7 +89,7 @@ for coordinate in coordinates:
 
 
 def createTileConfig(images, coordinates):
-    with open("tileconfig.txt", "w") as file:
+    with open("images/TileConfiguration.txt", "w") as file:
         file.write("# Define the number of dimensions we are working on\n")
         file.write("dim = 2\n")
         file.write("# Define the image coordinates (in pixels)\n")

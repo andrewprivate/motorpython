@@ -4,6 +4,39 @@ import stagecontroller
 import cv2 as cv
 
 
+chipFusedImage = cv.imread("Fused.jpg")
+chipLocation = [0, 0, 0]
+
+def openCamera():
+    camera = cv.VideoCapture(0)
+    camera.set(cv.CAP_PROP_FRAME_WIDTH, 1280)
+    camera.set(cv.CAP_PROP_FRAME_HEIGHT, 720)
+    return camera
+
+def get_offset_between_images(large_image, small_image):
+    large_gray = cv.cvtColor(large_image, cv.COLOR_BGR2GRAY)
+    small_gray = cv.cvtColor(small_image, cv.COLOR_BGR2GRAY)
+
+    result = cv.matchTemplate(large_gray, small_gray, cv.TM_CCOEFF_NORMED)
+    min_val, max_val, min_loc, max_loc = cv.minMaxLoc(result)
+
+    return max_loc
+
+def calibrate_chip_location(controller):
+    # Take picture of chip
+    chipImage = takePicture(controller,filename="images/chipImage.png")
+
+    # Find chip in fused image
+    offset = get_offset_between_images(chipFusedImage, chipImage)
+
+    x = offset[0] + controller.get_position()[0]
+    y = offset[1] + controller.get_position()[1]
+
+    print("Chip location: ({}, {})".format(x, y))
+
+    chipLocation[0] = x
+    chipLocation[1] = y
+    
 def get_focus_score(image):
     laplacian = cv.Laplacian(image, cv.CV_64F)
     variance = laplacian.var()
@@ -24,7 +57,7 @@ def gridTakePicture(controller, startX, startY, startZ, endX, endY, endZ, numX, 
     numPictures = numX * numY * numZ
     print("Number of pictures to be taken: {}".format(numPictures))
 
-    camera = cv.VideoCapture(0)
+    camera = openCamera()
 
     for i in range(numX):
         x = startX + i * stepSizeX
@@ -46,7 +79,7 @@ def gridTakePicture(controller, startX, startY, startZ, endX, endY, endZ, numX, 
 
         
 def focusCameraByZ(controller):
-    camera = cv.VideoCapture(0)
+    camera = openCamera()
 
     scale = controller.get_scale()
     current_pos = controller.get_position()
@@ -55,7 +88,7 @@ def focusCameraByZ(controller):
     minZ = 0
     maxZ = 60
 
-    numImages = 40
+    numImages = 100
     division = (maxZ - minZ) / numImages
     bestFocus = 0
     bestZ = 0
@@ -85,7 +118,7 @@ def focusCameraByZ(controller):
     bestFocus = 0
     bestZ = 0
 
-    refineRegion = 4
+    refineRegion = 2
 
     hasError = False
 
@@ -117,7 +150,7 @@ def focusCameraByZ(controller):
             
             print("Focus score: {}".format(focus))
 
-            new_filename = "images/focus_{}_{}.png".format(round(z,5), focus)
+            new_filename = "focus/focus_{}_{}.png".format(round(z,5), focus)
             cv.imwrite(new_filename, img)
 
             if focus > bestCurrentFocus:
@@ -158,7 +191,7 @@ def takePicture(controller, cameraIn = None, filename = None, save = True):
         if cameraIn:
             camera = cameraIn
         else:
-            camera = cv.VideoCapture(0)
+            camera = openCamera()
         img = camera.read()[1]
 
         # Rotate image 90
@@ -205,6 +238,18 @@ def main():
 
             if command.lower() == 'picture':
                 takePicture(controller)
+            elif command.lower() == 'stitch':
+                controller.move_to(250, 250, 0)
+                focusCameraByZ(controller)
+
+                z = controller.get_position()[2]
+                grid_start = [245, 240, z]
+                grid_end = [255, 260, z]
+                grid_n = [15, 30, 1]
+
+                gridTakePicture(controller, grid_start[0], grid_start[1], grid_start[2], grid_end[0], grid_end[1], grid_end[2], grid_n[0], grid_n[1], grid_n[2], interval=2, delay=2)
+            elif command.lower() == 'chip':
+                calibrate_chip_location(controller)
             elif command.lower() == 'grid':
                 # query user
                 #print("Enter start x, y, z/n")
