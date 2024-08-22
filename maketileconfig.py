@@ -84,18 +84,12 @@ def getImageSize(filename):
 
 size = getImageSize(images[0])
 
-# Get unique x, y, z values
-unique_x = list(set([(coordinate[0]) for coordinate in coordinates]))
-unique_y = list(set([(coordinate[1]) for coordinate in coordinates]))
-unique_z = list(set([(coordinate[2]) for coordinate in coordinates]))
-
 # Get grid size
-grid_x_size = len(unique_x)
-grid_y_size = len(unique_y)
-grid_z_size = len(unique_z)
-overlap = 0.1049
-overlap_x = 0.5
-overlap_y = 0.12
+grid_x_size = 15
+grid_y_size = 15
+grid_z_size = 1
+overlap_x = 0.35
+overlap_y = 0.3
 
 print("Grid size: {}x{}x{}".format(grid_x_size, grid_y_size, grid_z_size))
 
@@ -156,14 +150,14 @@ def createStitchConfig(images, coordinates, size):
         "version": "1.0",
         "mode": "2d",
         "overlap": 0.0,
-        "fuse_mode": "overwrite",
+        "fuse_mode": "linear",
         "tile_paths": images,
         "tile_layout": [],
         "alignment_file": "align_values.json"
     }
 
     for coordinate in coordinates:
-        config["tile_layout"].append([round(coordinate[0] * (1.0-overlap)), round(coordinate[1] * (1.0-overlap)), size[0], size[1]])
+        config["tile_layout"].append([round(coordinate[0] * (1.0-overlap_x)), round(coordinate[1] * (1.0-overlap_y)), size[0], size[1]])
 
     with open("images/stitch_config.json", "w") as file:
         json.dump(config, file)
@@ -177,7 +171,7 @@ def createStitchAlign(images, coordinates, size):
     }
 
     for coordinate in coordinates:
-        config["offsets"][0].append([round(coordinate[0] * 0.68), round(coordinate[1] * 0.70)])
+        config["offsets"][0].append([round(coordinate[0] * (1.0-overlap_x)), round(coordinate[1] * (1.0-overlap_y))])
 
     with open("images/align_values.json", "w") as file:
         json.dump(config, file)
@@ -185,20 +179,20 @@ def createStitchAlign(images, coordinates, size):
 createTileConfig(images, new_coordinates)
 print("Tile configuration file created")
 
-# createStitchConfig(images, new_coordinates, size)
-# print("Stitch configuration file created")
+createStitchConfig(images, new_coordinates, size)
+print("Stitch configuration file created")
 
-# createStitchAlign(images, new_coordinates, size)
+createStitchAlign(images, new_coordinates, size)
 
-# # Stitch, go to stitching/rust and run
-# # cargo run [path to stitch config file]
+# Stitch, go to stitching/rust and run
+# cargo run [path to stitch config file]
 
-# config_path = os.path.abspath("images/stitch_config.json")
-# print("Stitching configuration file path: {}".format(config_path))
+config_path = os.path.abspath("images/stitch_config.json")
+print("Stitching configuration file path: {}".format(config_path))
 
-# # Run the stitching program after cd to stitching/rust, keep shell open
-# import subprocess
-# cwdpath = os.path.abspath("stitching/rust")
-# print("Current working directory: {}".format(cwdpath))
-# p = subprocess.Popen(["cargo", "run", config_path], cwd=cwdpath, shell=True)
-# p.wait()
+# Run the stitching program after cd to stitching/rust, keep shell open
+import subprocess
+cwdpath = os.path.abspath("stitching/")
+print("Current working directory: {}".format(cwdpath))
+p = subprocess.Popen(["cargo", "run", config_path], cwd=cwdpath, shell=True)
+p.wait()

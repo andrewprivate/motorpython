@@ -9,10 +9,22 @@ import math
 chipFusedImage = cv.imread("Fused.jpg")
 chipLocation = [0, 0, 0]
 
+# Ask user for camera ID
+cameraID = int(input("Enter camera ID: "))
+
+# Test function to open camera
+try:
+    camera = cv.VideoCapture(cameraID)
+    img = camera.read()[1]
+    camera.release()
+except:
+    print("Error: Could not open the camera.")
+
 def openCamera():
-    camera = cv.VideoCapture(0)
+    camera = cv.VideoCapture(cameraID)
     camera.set(cv.CAP_PROP_FRAME_WIDTH, 1280)
     camera.set(cv.CAP_PROP_FRAME_HEIGHT, 720)
+    camera.set(cv.CAP_PROP_BUFFERSIZE, 1)
     return camera
 
 def get_offset_between_images(large_image, small_image):
@@ -120,7 +132,7 @@ def focusCameraByZ(controller):
     bestFocus = 0
     bestZ = 0
 
-    refineRegion = 2
+    refineRegion = 4
 
     hasError = False
 
@@ -134,7 +146,11 @@ def focusCameraByZ(controller):
         bestCurrentFocus = 0
         bestCurrentZ = 0
         for j in range(imagesPerScale + 1):
-            z = (j - imagesPerScale / 2) * division + zAccumulator
+            z = (j - imagesPerScale / 2 - 1) * division + zAccumulator
+
+            if j == 0:
+                controller.move_to(current_pos[0], current_pos[1], max(z - division,0))
+                time.sleep(0.5)
             if z < minZ or z > maxZ:
                 continue
 
@@ -145,7 +161,7 @@ def focusCameraByZ(controller):
 
             if img is None:
                 hasError = True
-                breakhome
+                break
                 
 
             focus = get_focus_score(img)
@@ -163,14 +179,15 @@ def focusCameraByZ(controller):
             break
 
         zAccumulator = bestCurrentZ
-        if bestCurrentFocus > bestFocus:
-            bestZ = bestCurrentZ
-            bestFocus = bestCurrentFocus
+        bestZ = bestCurrentZ
+        bestFocus = bestCurrentFocus
 
         if division <= 1/scale[2]:
             break
 
     print("Best focus: {} at z = {}".format(bestFocus, bestZ))
+    controller.move_to(current_pos[0], current_pos[1], max(bestZ - 1, 0))
+    time.sleep(0.5)
     controller.move_to(current_pos[0], current_pos[1], bestZ)
 
     camera.release()
@@ -261,7 +278,7 @@ def calculate_angle(center1, center2):
     angle = math.degrees(math.atan2(delta_y, delta_x))
     return angle
 
-def check_camera_alignment():
+def check_camera_alignment(controller):
     controller.move_to(250, 249.5, 47.625)
     # Take the first image and detect the contour center
     img1, center1 = detect_black_contour()
@@ -375,7 +392,7 @@ def main():
             elif command.lower() == 'aligncamera':
                 controller.move_to(250, 249.5, 47.625)
                 # Take the first image and detect the contour center
-                img1, center1 = detect_black_contour()
+                img1, center1 = detect_black_contour(controller)
                 if center1 is None:
                     return
 
@@ -383,7 +400,7 @@ def main():
                 controller.move_to(250, 250.5, 47.625)
 
                 # Take the second image after moving the camera and detect the contour center
-                img2, center2 = detect_black_contour()
+                img2, center2 = detect_black_contour(controller)
                 if center2 is None:
                     return
 

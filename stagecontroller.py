@@ -103,7 +103,7 @@ class StageController:
         # Send the command to move the stage by the remainder
         commandX = f"a {remainderX} {directionX} {interval} {home} 0\n"
         commandY = f"a {remainderY} {directionY} {interval} {home} 1\n"
-        commandZ = f"a {remainderZ} {directionZ} {interval * 2} {home} 2\n"
+        commandZ = f"a {remainderZ} {directionZ} {interval * 3} {home} 2\n"
 
         self.send_command(commandX)
         self.send_command(commandY)
