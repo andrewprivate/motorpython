@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Data Display</title>
+    <style>
+        .container {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+        }
+        .column {
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+        .column-1 {
+            width: 25%;
+        }
+        .column-2 {
+            width: 50%;
+        }
+        .column-3 {
+            width: 25%;
+        }
+        .section {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: black;
+            font-size: 1em;
+            text-align: center;
+        }
+        .section input, .section button {
+            margin: 5px;
+            font-size: 1em;
+        }
+        .textbox, .input-box {
+            margin: 10px;
+            padding: 10px;
+            width: 80%;
+            text-align: center;
+            font-size: 1em;
+        }
+        .live-value-textbox {
+            margin: 10px;
+            padding: 10px;
+            width: 80%;
+            text-align: center;
+            font-size: 1.5em; /* Increase font size for Live Value */
+        }
+        .button {
+            margin: 10px;
+            padding: 10px 20px;
+            font-size: 1em;
+            cursor: pointer;
+        }
+        .button.active {
+            background-color: lightgray;
+        }
+        .divider {
+            width: 80%;
+            height: 1px;
+            background-color: black;
+            margin: 10px auto;
+        }
+        .input-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .input-group input[type="checkbox"] {
+            margin-left: 10px;
+        }
+        .label-text {
+            font-size: 1em;
+            margin: 5px;
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+</head>
+<body>
+    <div class="container">
+        <div class="column column-1">
+            <div class="section">
+                <div class="label-text" id="title">Live Value</div>
+                <input type="text" class="live-value-textbox" id="value" value="" readonly>
+                <label class="label-text" for="source-voltage">Source Voltage</label>
+                <input type="number" class="input-box" id="source-voltage" value="0">
+                <button class="button" id="start-button">Start</button>
+                <button class="button" id="stop-button">Stop</button>
+            </div>
+            <div class="divider"></div>
+            <div class="section">
+                <div class="input-group">
+                    <label class="label-text">
+                        Chip Name
+                        <input type="text" class="input-box" id="chip-name" disabled>
+                        <input type="checkbox" id="chip-name-toggle" onchange="toggleInput('chip-name')">
+                    </label>
+                    <label class="label-text">
+                        Experiment Name
+                        <input type="text" class="input-box" id="experiment-name" disabled>
+                        <input type="checkbox" id="experiment-name-toggle" onchange="toggleInput('experiment-name')">
+                    </label>
+                    <label class="label-text">
+                        Component Name
+                        <input type="text" class="input-box" id="component-name" disabled>
+                        <input type="checkbox" id="component-name-toggle" onchange="toggleInput('component-name')">
+                    </label>
+                    <label class="label-text">
+                        Measurement Type
+                        <input type="text" class="input-box" id="measurement-type" disabled>
+                        <input type="checkbox" id="measurement-type-toggle" onchange="toggleInput('measurement-type')">
+                    </label>
+                    <label class="label-text">
+                        Working Directory
+                        <input type="text" class="input-box" id="working-directory" disabled>
+                        <input type="checkbox" id="working-directory-toggle" onchange="toggleInput('working-directory')">
+                    </label>
+                </div>
+                <div class="divider"></div>
+                <div class="input-group">
+                    <label class="label-text">
+                        Lower Limit (Volts)
+                        <input type="number" class="input-box" id="lower-limit">
+                    </label>
+                    <label class="label-text">
+                        Upper Limit (Volts)
+                        <input type="number" class="input-box" id="upper-limit">
+                    </label>
+                    <label class="label-text">
+                        Steps
+                        <input type="number" class="input-box" id="steps">
+                    </label>
+                    <button class="button" id="sweep-button">Sweep</button>
+                </div>
+            </div>
+            <div class="divider"></div>
+            <div class="section" id="plot-section">
+                <!-- Plot will be displayed here -->
+            </div>
+        </div>
+        <div class="column column-2">
+            <div class="section"></div>
+            <div class="section"></div>
+            <div class="section"></div>
+        </div>
+        <div class="column column-3">
+            <div class="section"></div>
+            <div class="section"></div>
+            <div class="section"></div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+
+        document.getElementById('start-button').addEventListener('click', function() {
+            const sourceVoltage = parseFloat(document.getElementById('source-voltage').value);
+            fetch('/start', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    source_voltage: sourceVoltage
+                })
+            });
+            this.classList.add('active');
+            document.getElementById('stop-button').classList.remove('active');
+        });
+
+        document.getElementById('stop-button').addEventListener('click', function() {
+            fetch('/stop', { method: 'POST' });
+            this.classList.add('active');
+            document.getElementById('start-button').classList.remove('active');
+        });
+
+        socket.on('update_value', function(data) {
+            document.getElementById('value').value = data.value;
+        });
+
+        function toggleInput(inputId) {
+            const input = document.getElementById(inputId);
+            input.disabled = !input.disabled;
+        }
+
+        document.getElementById('sweep-button').addEventListener('click', function() {
+            // Automatically press the stop button if it is not already pressed
+            const stopButton = document.getElementById('stop-button');
+            if (!stopButton.classList.contains('active')) {
+                stopButton.click();
+            }
+
+            const chipName = document.getElementById('chip-name').value;
+            const experimentName = document.getElementById('experiment-name').value;
+            const componentName = document.getElementById('component-name').value;
+            const measurementType = document.getElementById('measurement-type').value;
+            const workingDirectory = document.getElementById('working-directory').value;
+            const lowerLimit = document.getElementById('lower-limit').value;
+            const upperLimit = document.getElementById('upper-limit').value;
+            const steps = document.getElementById('steps').value;
+
+            // Clear existing plot
+            document.getElementById('plot-section').innerHTML = '';
+
+            fetch('/sweep', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    chip_name: chipName,
+                    experiment_name: experimentName,
+                    component_name: componentName,
+                    measurement_type: measurementType,
+                    working_directory: workingDirectory,
+                    lower_limit: lowerLimit,
+                    upper_limit: upperLimit,
+                    steps: steps
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const img = document.createElement('img');
+                img.src = data.plot_url;
+                img.style.maxWidth = '100%';
+                img.onload = function() {
+                    document.getElementById('plot-section').innerHTML = '';
+                    document.getElementById('plot-section').appendChild(img);
+                };
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    </script>
+</body>
+</html>

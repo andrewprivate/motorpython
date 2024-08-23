@@ -1,0 +1,8 @@
+Flask==3.0.3
+Flask_SocketIO==5.3.6
+keysight_ktb2900==1.0.1
+matplotlib==3.9.2
+numpy==2.1.0
+opencv_python==4.10.0.84
+pandas==2.2.2
+Pillow==10.4.0
