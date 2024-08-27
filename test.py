@@ -212,6 +212,7 @@ def takePicture(controller, cameraIn = None, filename = None, save = True):
         else:
             camera = openCamera()
         img = camera.read()[1]
+        img = camera.read()[1]
 
         # Rotate image 90
         img = cv.rotate(img, cv.ROTATE_90_COUNTERCLOCKWISE)
