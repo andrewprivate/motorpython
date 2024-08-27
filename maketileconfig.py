@@ -90,8 +90,8 @@ print("Image size: {}".format(size))
 grid_x_size = 15
 grid_y_size = 15
 grid_z_size = 1
-overlap_x = 0
-overlap_y = 0
+overlap_x = 0.20
+overlap_y = 0.20
 
 print("Grid size: {}x{}x{}".format(grid_x_size, grid_y_size, grid_z_size))
 
@@ -116,8 +116,8 @@ print("Step size x: {}".format(step_size_x))
 
 new_coordinates = []
 for coordinate in coordinates:
-    x = (coordinate[0] - min_x) / step_size_x * size[0]
-    y = (coordinate[1] - min_y) / step_size_y * size[1]
+    x = (coordinate[0] - min_x) / step_size_x * size[1]
+    y = (coordinate[1] - min_y) / step_size_y * size[0]
     new_coordinates.append((x, y))
 
 
