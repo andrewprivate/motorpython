@@ -159,7 +159,7 @@ def createStitchConfig(images, coordinates, size):
     }
 
     for coordinate in coordinates:
-        config["tile_layout"].append([round(coordinate[0] * (1.0-overlap_x)), round(coordinate[1] * (1.0-overlap_y)), size[0], size[1]])
+        config["tile_layout"].append([round(coordinate[0] * (1.0-overlap_x)), round(coordinate[1] * (1.0-overlap_y)), size[1], size[0]])
 
     with open("images/stitch_config.json", "w") as file:
         json.dump(config, file)
