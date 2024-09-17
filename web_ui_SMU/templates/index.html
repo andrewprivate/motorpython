@@ -8,21 +8,28 @@
         .container {
             display: flex;
             width: 100%;
-            height: 100vh;
         }
         .column {
             height: 100%;
             display: flex;
             flex-direction: column;
+            padding: 10px;
+            box-sizing: border-box; 
         }
         .column-1 {
             width: 25%;
         }
         .column-2 {
+            position: fixed;
+            left: 50%;
+            transform: translateX(-50%);
             width: 50%;
+            height: 100%;
+            z-index: 1000; 
         }
         .column-3 {
             width: 25%;
+            margin-left: auto;
         }
         .section {
             flex: 1;
@@ -50,7 +57,8 @@
             padding: 10px;
             width: 80%;
             text-align: center;
-            font-size: 1.5em; /* Increase font size for Live Value */
+            font-size: 2.5em !important; /* Increase font size for Live Value */
+            font-weight: 600;
         }
         .button {
             margin: 10px;
@@ -78,6 +86,15 @@
         .label-text {
             font-size: 1em;
             margin: 5px;
+        }
+        img {
+            width: 100%;
+            height: auto;
+        }
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            width: 90%;
         }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
@@ -145,19 +162,100 @@
             </div>
         </div>
         <div class="column column-2">
-            <div class="section"></div>
-            <div class="section"></div>
-            <div class="section"></div>
+            <div class="label-text" id="title" style="text-align: center;">Live Camera Feed</div>
+            <!-- Fetch /video_feed -->
+            <div class="section">
+                <img id="liveCamera" src="/video_feed" alt="Live Camera Feed">
+                <!-- Sliders to adjust the video brightness and exposure -->
+                <div class="slider-container">
+                    <label class="label-text" for="brightness-slider">Brightness</label>
+                    <input type="range" id="brightness-slider" class="slider" min="0" max="200" value="100">
+                    <label class="label-text" for="contrast-slider">Contrast</label>
+                    <input type="range" id="contrast-slider" class="slider" min="0" max="200" value="100">
+                </div>
+            </div>
         </div>
         <div class="column column-3">
-            <div class="section"></div>
-            <div class="section"></div>
-            <div class="section"></div>
+            <div class="input-group">
+                <div class="section">
+                    <div class="label-text" id="title" style="text-align: center;">Power Meter Output</div>
+                    <input type="text" class="input-box" id="power-meter" value="" readonly>
+                    <button class="button" id="pm-start-button">Start</button>
+                    <button class="button" id="pm-stop-button">Stop</button>
+                    <div class="divider"></div>
+                    <button class="button" id="pm-start-record-button">Start Recording</button>
+                    <button class="button" id="pm-stop-record-button">Stop Recording</button>
+                    <div class="divider"></div>
+                    <button class="button" id="pm-zero-button">Zero</button>
+                    <div class="divider"></div>
+                    <div class="label-text" id="title" style="text-align: center;">Current Wavelength</div>
+                    <input type="text" class="input-box" id="pm-wavelength" value="" readonly>
+                    <div class="label-text" id="title" style="text-align: center;">Set New Wavelength (nm)</div>
+                    <input type="text" class="input-box" id="new-pm-wavelength" value="">
+                    <button class="button" id="set-wavelength-button">Set</button>
+                    <div class="divider"></div>
+                </div>
+            </div>
+            <div class="section">
+            </div>
         </div>
     </div>
 
     <script>
         const socket = io();
+        let pmValues = []; // stores power meter output
+        let record = false;
+
+        function downloadCSV(data) {
+            const csvContent = "data:text/csv;charset=utf-8," + data.map(e => e).join("\n");
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "power_meter_data.csv");
+            document.body.appendChild(link); 
+            link.click();
+            document.body.removeChild(link); 
+        }
+
+        document.getElementById('pm-start-button').addEventListener('click', function() {
+            fetch('/start_pm', { method: 'POST' });
+            this.classList.add('active');
+            document.getElementById('pm-stop-button').classList.remove('active');
+        });
+
+        document.getElementById('pm-stop-button').addEventListener('click', function() {
+            fetch('/stop_pm', { method: 'POST' });
+            this.classList.add('active');
+            document.getElementById('pm-start-button').classList.remove('active');
+        });
+
+        document.getElementById('pm-start-record-button').addEventListener('click', function() {
+            record = true;
+            this.classList.add('active');
+            document.getElementById('pm-start-button').classList.remove('active');
+            pmValues = ["pm_value"]; // clear array
+        });
+
+        document.getElementById('pm-stop-record-button').addEventListener('click', function() {
+            if(record) {
+                record = false;
+                downloadCSV(pmValues);
+                pmValues = ["pm_value"]; // clear array
+            }
+            this.classList.add('active');
+            document.getElementById('pm-start-record-button').classList.remove('active');
+        });
+
+        document.getElementById('pm-zero-button').addEventListener('click', function() {
+            fetch('/zero_pm', { method: 'POST' })
+                .then(response => {
+                    if (response.status === 204) {
+                        console.log('Zero was successful');
+                    } else {
+                        console.error('Zero was not successful');
+                    }
+                });
+        });
 
         document.getElementById('start-button').addEventListener('click', function() {
             const sourceVoltage = parseFloat(document.getElementById('source-voltage').value);
@@ -179,9 +277,92 @@
             this.classList.add('active');
             document.getElementById('start-button').classList.remove('active');
         });
+        
+
+        socket.on('update_pm_value', function(data) {
+            const pmValue = document.getElementById('power-meter');
+            pmValue.value = data.value;
+            if (record) {
+                pmValues.push(data.value); // add value to array
+            }
+        });
+
+        socket.on('update_pm_wavelength', function(data) {
+            const pmWavelength = document.getElementById('pm-wavelength');
+            pmWavelength.value = data.value;
+        });
+
+        document.getElementById('set-wavelength-button').addEventListener('click', function() {
+            const pmWavelength = parseFloat(document.getElementById('new-pm-wavelength').value);
+            fetch('/set_wavelength', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    wavelength: pmWavelength
+                })
+            });
+            document.getElementById('new-pm-wavelength').value = '';
+        });
 
         socket.on('update_value', function(data) {
-            document.getElementById('value').value = data.value;
+            const liveValue = document.getElementById('value');
+            liveValue.value = data.value;
+            const unit = liveValue.value.split(' ')[1];
+            switch (unit) {
+                case 'Y':
+                    liveValue.style.color = '#440154FF';
+                    break;
+                case 'Z':
+                    liveValue.style.color = '#481567FF';
+                    break;
+                case 'E':
+                    liveValue.style.color = '#482677FF';
+                    break;
+                case 'P':
+                    liveValue.style.color = '#453781FF';
+                    break;
+                case 'T':
+                    liveValue.style.color = '#404788FF';
+                    break;
+                case 'G':
+                    liveValue.style.color = '#39568CFF';
+                    break;
+                case 'M':
+                    liveValue.style.color = '#33638DFF';
+                    break;
+                case 'k':
+                    liveValue.style.color = '#2D708EFF';
+                    break;
+                case 'm':
+                    liveValue.style.color = '#287D8EFF';
+                    break;
+                case 'µ':
+                    liveValue.style.color = '#238A8DFF';
+                    break;
+                case 'n':
+                    liveValue.style.color = '#1F968BFF';
+                    break;
+                case 'p':
+                    liveValue.style.color = '#20A387FF';
+                    break;
+                case 'f':
+                    liveValue.style.color = '#29AF7FFF';
+                    break;
+                case 'a':
+                    liveValuet.style.color = '#3CBB75FF';
+                    break;
+                case 'z':
+                    liveValue.style.color = '#55C667FF';
+                    break;
+                case 'y':
+                    liveValue.style.color = '#73D055FF';
+                    break;
+                default:
+                    liveValue.style.color = 'black';
+                    break;
+            }
         });
 
         function toggleInput(inputId) {
@@ -236,6 +417,25 @@
             })
             .catch(error => console.error('Error:', error));
         });
+
+
+        // Add event listeners for the sliders
+        document.getElementById('brightness-slider').addEventListener('input', function() {
+            const brightnessValue = this.value;
+            applyFilters();
+        });
+
+        document.getElementById('contrast-slider').addEventListener('input', function() {
+            const contrastValue = this.value;
+            applyFilters();
+        });
+
+        function applyFilters() {
+            const brightnessValue = document.getElementById('brightness-slider').value;
+            const contrastValue = document.getElementById('contrast-slider').value;
+            const liveCamera = document.getElementById('liveCamera');
+            liveCamera.style.filter = `brightness(${brightnessValue}%) contrast(${contrastValue}%)`;
+        }
     </script>
 </body>
 </html>
