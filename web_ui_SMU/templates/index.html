@@ -10,27 +10,14 @@
             width: 100%;
         }
         .column {
-            height: 100%;
-            display: flex;
-            flex-direction: column;
+            flex: 1;
             padding: 10px;
-            box-sizing: border-box; 
+            box-sizing: border-box;
         }
-        .column-1 {
-            width: 25%;
-        }
-        .column-2 {
-            position: fixed;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 50%;
-            height: 100%;
-            z-index: 1000; 
-        }
-        .column-3 {
-            width: 25%;
-            margin-left: auto;
-        }
+        .column-4 {
+            flex: 1.5; /* make this column slightly wider */
+            margin-left: auto;  
+        } 
         .section {
             flex: 1;
             display: flex;
@@ -48,14 +35,14 @@
         .textbox, .input-box {
             margin: 10px;
             padding: 10px;
-            width: 80%;
+            width: 90%;
             text-align: center;
             font-size: 1em;
         }
-        .live-value-textbox {
-            margin: 10px;
+        .live-value-textbox, #power-meter {
+            margin: 5px;
             padding: 10px;
-            width: 80%;
+            width: 90%;
             text-align: center;
             font-size: 2.5em !important; /* Increase font size for Live Value */
             font-weight: 600;
@@ -70,7 +57,7 @@
             background-color: lightgray;
         }
         .divider {
-            width: 80%;
+            width: 90%;
             height: 1px;
             background-color: black;
             margin: 10px auto;
@@ -96,6 +83,22 @@
             flex-direction: column;
             width: 90%;
         }
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button {  
+            opacity: 1;
+        }
+        .outline {
+            padding: 5px;
+            border: 1px solid #808080;
+            border-radius: 2.5px;
+            margin-top: 5px;
+            width: 90%;
+        }
+        .input-group-horizontal {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px; /* Optional: Add margin for spacing */
+        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
@@ -103,7 +106,7 @@
     <div class="container">
         <div class="column column-1">
             <div class="section">
-                <div class="label-text" id="title">Live Value</div>
+                <div class="label-text" id="title" style="text-align: center;">Live Value</div>
                 <input type="text" class="live-value-textbox" id="value" value="" readonly>
                 <label class="label-text" for="source-voltage">Source Voltage</label>
                 <input type="number" class="input-box" id="source-voltage" value="0">
@@ -162,41 +165,88 @@
             </div>
         </div>
         <div class="column column-2">
+            <div class="section">
+                <div class="label-text" id="title" style="text-align: center;">Power Meter</div>
+                <input type="text" class="input-box" id="power-meter" value="" readonly>
+                <button class="button" id="pm-start-button">Start</button>
+                <button class="button" id="pm-stop-button">Stop</button>
+                <div class="divider"></div>
+                <button class="button" id="pm-start-record-button">Start Recording</button>
+                <button class="button" id="pm-stop-record-button">Stop Recording</button>
+                <div class="divider"></div>
+                <button class="button" id="pm-zero-button">Zero</button>
+                <div class="divider"></div>
+                <div class="label-text" id="title" style="text-align: center;">Current Wavelength</div>
+                <input type="text" class="input-box" id="pm-wavelength" value="" readonly>
+                <div class="label-text" id="title" style="text-align: center;">Set New Wavelength (nm)</div>
+                <input type="text" class="input-box" id="new-pm-wavelength" value="">
+                <button class="button" id="set-wavelength-button">Set</button>
+                <div class="divider"></div>
+            </div>
+        </div>
+        <div class="column column-3">
+            <div class="input-group">
+                <div class="input-group-horizontal">
+                    <label class="label-text" for="piezo_a" style="font-size: 1.5em;">Piezo A: </label>
+                    <button class="button" id="a_connect">Connect</button>
+                </div>
+                <div class="outline">
+                    <div class="section">
+                        <label class="label-text" for="a_x">X: </label>
+                        <div class="input-group-horizontal">
+                            <input type="number" step="0.01" class="input-box" id="a_x" max="75" value="0">
+                            <button class="button" id="a_x_ground">Ground</button>
+                        </div>
+                        <label class="label-text" for="a_y">Y: </label>
+                        <div class="input-group-horizontal">
+                            <input type="number" step="0.01" class="input-box" id="a_y" max="75" value="0">
+                            <button class="button" id="a_y_ground">Ground</button>
+                        </div>
+                        <label class="label-text" for="a_z">Z: </label>
+                        <div class="input-group-horizontal">
+                            <input type="number" step="0.01" class="input-box" id="a_z" max="75" value="0">
+                            <button class="button" id="a_z_ground">Ground</button>
+                        </div>
+                        <button class="button" id="a_ground_all">Ground All A</button>
+                    </div>
+                </div>
+                <br>
+                <div class="input-group-horizontal">
+                    <label class="label-text" for="piezo_b" style="font-size: 1.5em;">Piezo B: </label>
+                    <button class="button" id="b_connect">Connect</button>
+                </div>
+                <div class="outline">
+                    <div class="section">
+                        <label class="label-text" for="b_x">X: </label>
+                        <div class="input-group-horizontal">
+                            <input type="number" class="input-box" id="b_x" max="75" value="0">
+                            <button class="button" id="b_x_ground">Ground</button>
+                        </div>
+                        <label class="label-text" for="b_y">Y: </label>
+                        <div class="input-group-horizontal">
+                            <input type="number" class="input-box" id="b_y" max="75" value="0">
+                            <button class="button" id="b_y_ground">Ground</button>
+                        </div>
+                        <label class="label-text" for="b_z">Z: </label>
+                        <div class="input-group-horizontal">
+                            <input type="number" class="input-box" id="b_z" max="75" value="0">
+                            <button class="button" id="b_z_ground">Ground</button>
+                        </div>
+                        <button class="button" id="b_ground_all">Ground All B</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="column column-4">
             <div class="label-text" id="title" style="text-align: center;">Live Camera Feed</div>
-            <!-- Fetch /video_feed -->
             <div class="section">
                 <img id="liveCamera" src="/video_feed" alt="Live Camera Feed">
-                <!-- Sliders to adjust the video brightness and exposure -->
                 <div class="slider-container">
                     <label class="label-text" for="brightness-slider">Brightness</label>
                     <input type="range" id="brightness-slider" class="slider" min="0" max="200" value="100">
                     <label class="label-text" for="contrast-slider">Contrast</label>
                     <input type="range" id="contrast-slider" class="slider" min="0" max="200" value="100">
                 </div>
-            </div>
-        </div>
-        <div class="column column-3">
-            <div class="input-group">
-                <div class="section">
-                    <div class="label-text" id="title" style="text-align: center;">Power Meter Output</div>
-                    <input type="text" class="input-box" id="power-meter" value="" readonly>
-                    <button class="button" id="pm-start-button">Start</button>
-                    <button class="button" id="pm-stop-button">Stop</button>
-                    <div class="divider"></div>
-                    <button class="button" id="pm-start-record-button">Start Recording</button>
-                    <button class="button" id="pm-stop-record-button">Stop Recording</button>
-                    <div class="divider"></div>
-                    <button class="button" id="pm-zero-button">Zero</button>
-                    <div class="divider"></div>
-                    <div class="label-text" id="title" style="text-align: center;">Current Wavelength</div>
-                    <input type="text" class="input-box" id="pm-wavelength" value="" readonly>
-                    <div class="label-text" id="title" style="text-align: center;">Set New Wavelength (nm)</div>
-                    <input type="text" class="input-box" id="new-pm-wavelength" value="">
-                    <button class="button" id="set-wavelength-button">Set</button>
-                    <div class="divider"></div>
-                </div>
-            </div>
-            <div class="section">
             </div>
         </div>
     </div>
@@ -219,20 +269,14 @@
 
         document.getElementById('pm-start-button').addEventListener('click', function() {
             fetch('/start_pm', { method: 'POST' });
-            this.classList.add('active');
-            document.getElementById('pm-stop-button').classList.remove('active');
         });
 
         document.getElementById('pm-stop-button').addEventListener('click', function() {
             fetch('/stop_pm', { method: 'POST' });
-            this.classList.add('active');
-            document.getElementById('pm-start-button').classList.remove('active');
         });
 
         document.getElementById('pm-start-record-button').addEventListener('click', function() {
             record = true;
-            this.classList.add('active');
-            document.getElementById('pm-start-button').classList.remove('active');
             pmValues = ["pm_value"]; // clear array
         });
 
@@ -242,8 +286,6 @@
                 downloadCSV(pmValues);
                 pmValues = ["pm_value"]; // clear array
             }
-            this.classList.add('active');
-            document.getElementById('pm-start-record-button').classList.remove('active');
         });
 
         document.getElementById('pm-zero-button').addEventListener('click', function() {
@@ -283,7 +325,7 @@
             const pmValue = document.getElementById('power-meter');
             pmValue.value = data.value;
             if (record) {
-                pmValues.push(data.value); // add value to array
+                pmValues.push(data.value.split(' ')[0]); // add value to array
             }
         });
 
@@ -418,8 +460,6 @@
             .catch(error => console.error('Error:', error));
         });
 
-
-        // Add event listeners for the sliders
         document.getElementById('brightness-slider').addEventListener('input', function() {
             const brightnessValue = this.value;
             applyFilters();
@@ -436,6 +476,130 @@
             const liveCamera = document.getElementById('liveCamera');
             liveCamera.style.filter = `brightness(${brightnessValue}%) contrast(${contrastValue}%)`;
         }
-    </script>
+
+        // Ground buttons
+        document.getElementById('a_x_ground').addEventListener('click', function() {
+            setGround('a_x');
+        });
+
+        document.getElementById('a_y_ground').addEventListener('click', function() {
+            setGround('a_y');
+        });
+
+        document.getElementById('a_z_ground').addEventListener('click', function() {
+            setGround('a_z');
+        });
+
+        document.getElementById('b_x_ground').addEventListener('click', function() {
+            setGround('b_x');
+        });
+
+        document.getElementById('b_y_ground').addEventListener('click', function() {
+            setGround('b_y');
+        });
+
+        document.getElementById('b_z_ground').addEventListener('click', function() {
+            setGround('b_z');
+        });
+
+        document.getElementById('a_ground_all').addEventListener('click', function() {
+            setGround('a_x');
+            setGround('a_y');
+            setGround('a_z');
+        });
+
+        document.getElementById('b_ground_all').addEventListener('click', function() {
+            setGround('b_x');
+            setGround('b_y');
+            setGround('b_z');
+        });
+
+        function setGround(inputId) {
+            const input = document.getElementById(inputId);
+            input.value = 0;
+            fetch('/set_voltage', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    axis: inputId,
+                    voltage: 0
+                })
+            });
+        }
+
+        document.getElementById('a_connect').addEventListener('click', function() {
+            const button = this;
+            const action = button.textContent === 'Connect' ? 'connect_piezo_a' : 'disconnect_piezo_a';
+            fetch(`/${action}`, { method: 'POST' })
+            .then(response => {
+                if (response.status === 204) {
+                    button.textContent = button.textContent === 'Connect' ? 'Disconnect' : 'Connect';
+                } else {
+                    console.error('Failed to connect/disconnect');
+                }
+            });
+        });
+
+        document.getElementById('b_connect').addEventListener('click', function() {
+            const button = this;
+            const action = button.textContent === 'Connect' ? 'connect_piezo_b' : 'disconnect_piezo_b';
+            fetch(`/${action}`, { method: 'POST' })
+            .then(response => {
+                if (response.status === 204) {
+                    button.textContent = button.textContent === 'Connect' ? 'Disconnect' : 'Connect';
+                } else {
+                    console.error('Failed to connect/disconnect');
+                }
+            });
+        });
+
+        socket.on('update_piezo_value_a', function(data) {
+            console.log(data);
+            document.getElementById('a_x').value = data.x_value;
+            document.getElementById('a_y').value = data.y_value;
+            document.getElementById('a_z').value = data.z_value;
+        });
+
+        socket.on('update_piezo_value_b', function(data) {
+            document.getElementById('b_x').value = data.x_value;
+            document.getElementById('b_y').value = data.y_value;
+            document.getElementById('b_z').value = data.z_value;
+        });
+
+        // truncate value of axis if exceeds max value
+        function truncateValue(event) {
+            const maxValue = 75;
+            if (event.target.value > maxValue) {
+                event.target.value = maxValue;
+            }
+        }
+
+        // list of input ids for piezo axes
+        const inputIds = ['a_x', 'a_y', 'a_z', 'b_x', 'b_y', 'b_z'];
+        inputIds.forEach(id => {
+            document.getElementById(id).addEventListener('input', truncateValue);
+        });
+
+        // update voltages on change
+        inputIds.forEach(id => {
+            document.getElementById(id).addEventListener('change', function() {
+                const axis = id;
+                const voltage = this.value;
+                console.log(axis, voltage);
+                fetch('/set_voltage', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        axis: axis,
+                        voltage: voltage
+                    })
+                });
+            });
+        });
+        </script>
 </body>
 </html>

@@ -12,31 +12,87 @@ import pandas as pd
 import os
 import pyvisa
 from datetime import datetime
+from mdt69x import MDT693B
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 app.config['UPLOAD_FOLDER'] = ''
 socketio = SocketIO(app)
 
+# Global variables
+stop_pm_thread = False
+stop_piezo_thread_a = False
+stop_piezo_thread_b = False
 stop_thread = False
+piezo_controller_a = None
+piezo_controller_b = None
+
 latest_value = "ERROR"  # Placeholder for the latest value
 
 rm = pyvisa.ResourceManager()
 print(rm.list_resources())
 
+def extract_voltage(voltage_response):
+    """Extracts and converts voltage value from the response list."""
+    print(f"Raw voltage response: {voltage_response}")  # ['[ 42.98]', '*']
+    
+    # Ensure we check for valid entries
+    for item in voltage_response:
+        print(f"Checking item: {item}")  # Checking item: [ 42.98]
+        if isinstance(item, str) and item.startswith('[') and item.endswith(']'):
+            return float(item.strip('[] '))
+    
+    print("Error: No valid voltage data found.")
+    return None  # or raise an error if you prefer
+
+
+def connect_piezo_controller(piezo):
+    if(piezo == 'a'):
+        piezo_controller = MDT693B("/dev/cu.usbmodem2403278983_062")
+        global piezo_controller_a
+        piezo_controller_a = piezo_controller
+        print('connected to piezo a...')
+    elif(piezo == 'b'):
+        piezo_controller = MDT693B("some other port")
+        global piezo_controller_b
+        piezo_controller_b = piezo_controller
+        print('connected to piezo b...')
+    return piezo_controller
+
+def fetch_piezo_controller_data(piezo):
+    if(piezo == 'a'):
+        print('fetching piezo a data...')
+        piezo_controller = connect_piezo_controller('a')
+    elif(piezo == 'b'):
+        piezo_controller = connect_piezo_controller('b')
+
+    global stop_piezo_thread_a, stop_piezo_thread_b
+    if piezo == 'a' and stop_piezo_thread_a:
+        return
+    elif piezo == 'b' and stop_piezo_thread_b:
+        return
+    
+    x_volt = extract_voltage(piezo.get_xvolt())
+    y_volt = extract_voltage(piezo.get_yvolt())
+    z_volt = extract_voltage(piezo.get_zvolt())
+
+    with app.app_context():
+        socket_call = 'update_piezo_value_'+piezo
+        socketio.emit(socket_call, {'x_value': x_volt, 'y_value': y_volt, 'z_value': z_volt})
+
 def connect_power_meter():
-    visa_address = 'USB0::0x1313::0x8075::P5006903::0::INSTR'
+    visa_address = 'USB0::0x1313::0x8075::P5006297::0::INSTR'
     power_meter = rm.open_resource(visa_address)
     return power_meter
 
 def fetch_power_meter_data():
     power_meter = connect_power_meter()
 
-    global stop_thread
-    while not stop_thread:
+    global stop_pm_thread
+    while not stop_pm_thread:
         power_value = power_meter.query('MEAS:POW?')
         converted_power = float(power_value)*1e6
-        fomatted_power = f"{converted_power:.3f} µW"
+        fomatted_power = f"{converted_power:.4f} µW"
         wavelength = power_meter.query('SENSE:CORR:WAV?')
         formatted_wavelength = f"{wavelength} nm"
         with app.app_context():
@@ -86,10 +142,65 @@ def video_feed():
     return Response(gen_frames(),
                     mimetype='multipart/x-mixed-replace; boundary=frame')
 
+@app.route('/connect_piezo_a', methods=['POST'])
+def connect_piezo_a():
+    global stop_piezo_thread_a
+    stop_piezo_thread_a = False
+    print('connecting piezo a')
+
+    piezo_thread_a = threading.Thread(target=fetch_piezo_controller_data('a'))
+    piezo_thread_a.start()
+    return '', 204
+
+@app.route('/disconnect_piezo_a', methods=['POST'])
+def disconnect_piezo_a():
+    global stop_piezo_thread_a, piezo_controller_a
+    piezo_controller_a.close()
+    stop_piezo_thread_a = True
+    piezo_controller_a = None
+    return '', 204
+
+@app.route('/connect_piezo_b', methods=['POST'])
+def connect_piezo_b():
+    global stop_piezo_thread_b
+    stop_piezo_thread_b = False
+
+    piezo_thread_b = threading.Thread(target=fetch_piezo_controller_data('b'))
+    piezo_thread_b.start()
+    return '', 204
+
+@app.route('/disconnect_piezo_b', methods=['POST'])
+def disconnect_piezo_b():
+    global stop_piezo_thread_b
+    stop_piezo_thread_b = True
+    return '', 204
+
+@app.route('/set_voltage', methods=['POST'])
+def set_voltage():
+    data = request.get_json()
+    axis = data.get('axis').split('_')[1]
+    voltage = float(data.get('voltage'))
+    piezo = data.get('axis').split('_')[0]
+    print("axis: ", axis)
+    print("voltage: ", voltage)
+    if axis is not None and voltage is not None:    
+        if piezo == 'a':
+            piezo_controller = piezo_controller_a
+        elif piezo == 'b':
+            piezo_controller = piezo_controller_b
+        if axis == 'x':
+            piezo_controller.set_xvolt(voltage)
+        elif axis == 'y':
+            piezo_controller.set_yvolt(voltage)
+        elif axis == 'z':
+            piezo_controller.set_zvolt(voltage)
+    return '', 204
+
+
 @app.route('/start_pm', methods=['POST'])
 def start_pm():
-    global stop_thread
-    stop_thread = False
+    global stop_pm_thread
+    stop_pm_thread = False
 
     pm_thread = threading.Thread(target=fetch_power_meter_data)
     pm_thread.start()
@@ -97,8 +208,8 @@ def start_pm():
 
 @app.route('/stop_pm', methods=['POST'])
 def stop_pm():
-    global stop_thread
-    stop_thread = True
+    global stop_pm_thread
+    stop_pm_thread = True
     return '', 204
 
 @app.route('/zero_pm', methods=['POST'])
@@ -130,8 +241,6 @@ def set_wavelength():
 #     thread = threading.Thread(target=generate_data, args=(source_voltage,))
 #     thread.start()
 
-#     pm_thread = threading.Thread(target=fetch_power_data, args=(source_voltage,))
-#     pm_thread.start()
 #     return '', 204
 
 # @app.route('/stop', methods=['POST'])
