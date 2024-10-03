@@ -7,6 +7,8 @@ import keysight_ktb2900
 import numpy as np # For keysight_ktb2900 arrays
 from PIL import Image
 import cv2
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
@@ -34,16 +36,16 @@ print(rm.list_resources())
 
 def extract_voltage(voltage_response):
     """Extracts and converts voltage value from the response list."""
-    print(f"Raw voltage response: {voltage_response}")  # ['[ 42.98]', '*']
+    print(f"Raw voltage response: {voltage_response}")  # Example output: ['[ 42.98]', '*']
     
-    # Ensure we check for valid entries
+    # Check for valid entries
     for item in voltage_response:
         print(f"Checking item: {item}")  # Checking item: [ 42.98]
         if isinstance(item, str) and item.startswith('[') and item.endswith(']'):
-            return float(item.strip('[] '))
+            return float(item.strip('[] ')) # Convert to float and remove brackets and spaces
     
     print("Error: No valid voltage data found.")
-    return None  # or raise an error if you prefer
+    return None
 
 
 def connect_piezo_controller(piezo):
@@ -64,17 +66,16 @@ def fetch_piezo_controller_data(piezo):
         print('fetching piezo a data...')
         piezo_controller = connect_piezo_controller('a')
     elif(piezo == 'b'):
+        print('fetching piezo b data...')
         piezo_controller = connect_piezo_controller('b')
 
     global stop_piezo_thread_a, stop_piezo_thread_b
-    if piezo == 'a' and stop_piezo_thread_a:
-        return
-    elif piezo == 'b' and stop_piezo_thread_b:
+    if (piezo == 'a' and stop_piezo_thread_a) or (piezo == 'b' and stop_piezo_thread_b):
         return
     
-    x_volt = extract_voltage(piezo.get_xvolt())
-    y_volt = extract_voltage(piezo.get_yvolt())
-    z_volt = extract_voltage(piezo.get_zvolt())
+    x_volt = extract_voltage(piezo_controller.get_xvolt())
+    y_volt = extract_voltage(piezo_controller.get_yvolt())
+    z_volt = extract_voltage(piezo_controller.get_zvolt())
 
     with app.app_context():
         socket_call = 'update_piezo_value_'+piezo
@@ -100,9 +101,9 @@ def fetch_power_meter_data():
             socketio.emit('update_pm_wavelength', {'value': formatted_wavelength})
         time.sleep(0.1)
 
-# generates frames for the video feed (https://stackoverflow.com/questions/54786145/web-cam-in-a-webpage-using-flask-and-python/54787912#54787912)
+# generates frames for the video feed
 def gen_frames():
-    camera = cv2.VideoCapture(0)  # 0 defaults to the webcam -> index of camera
+    camera = cv2.VideoCapture(0)
 
     while True:
         success, frame = camera.read() 
