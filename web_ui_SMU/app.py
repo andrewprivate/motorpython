@@ -3,7 +3,7 @@ from flask_socketio import SocketIO, emit
 import threading
 import time
 import random  # For simulating data
-import keysight_ktb2900
+#import keysight_ktb2900
 import numpy as np # For keysight_ktb2900 arrays
 from PIL import Image
 import cv2
@@ -42,7 +42,8 @@ def extract_voltage(voltage_response):
     for item in voltage_response:
         print(f"Checking item: {item}")  # Checking item: [ 42.98]
         if isinstance(item, str) and item.startswith('[') and item.endswith(']'):
-            return float(item.strip('[] ')) # Convert to float and remove brackets and spaces
+            print(float(item.strip(' []')))
+            return float(item.strip(' []')) # Convert to float and remove brackets and spaces
     
     print("Error: No valid voltage data found.")
     return None
@@ -73,9 +74,13 @@ def fetch_piezo_controller_data(piezo):
     if (piezo == 'a' and stop_piezo_thread_a) or (piezo == 'b' and stop_piezo_thread_b):
         return
     
-    x_volt = extract_voltage(piezo_controller.get_xvolt())
-    y_volt = extract_voltage(piezo_controller.get_yvolt())
-    z_volt = extract_voltage(piezo_controller.get_zvolt())
+    print('extracting voltages...')
+    x_volt = float(extract_voltage(piezo_controller.get_xvolt()))
+    time.sleep(0.1)
+    y_volt = float(extract_voltage(piezo_controller.get_yvolt()))
+    time.sleep(0.1)
+    z_volt = float(extract_voltage(piezo_controller.get_zvolt()))
+    time.sleep(0.1)
 
     with app.app_context():
         socket_call = 'update_piezo_value_'+piezo
@@ -191,6 +196,7 @@ def set_voltage():
             piezo_controller = piezo_controller_b
         if axis == 'x':
             piezo_controller.set_xvolt(voltage)
+            print("NEW X: ",piezo_controller.get_xvolt())
         elif axis == 'y':
             piezo_controller.set_yvolt(voltage)
         elif axis == 'z':
@@ -231,133 +237,133 @@ def set_wavelength():
     else:
         return 'Invalid wavelength value', 400
 
-@app.route('/start', methods=['POST'])
-def start():
-    global stop_thread
-    stop_thread = False
+# @app.route('/start', methods=['POST'])
+# def start():
+#     global stop_thread
+#     stop_thread = False
 
-    data = request.json
-    source_voltage = data.get('source_voltage', -1)
+#     data = request.json
+#     source_voltage = data.get('source_voltage', -1)
 
-    thread = threading.Thread(target=generate_data, args=(source_voltage,))
-    thread.start()
+#     thread = threading.Thread(target=generate_data, args=(source_voltage,))
+#     thread.start()
 
-    return '', 204
+#     return '', 204
 
-@app.route('/stop', methods=['POST'])
-def stop():
-    global stop_thread
-    stop_thread = True
-    return '', 204
+# @app.route('/stop', methods=['POST'])
+# def stop():
+#     global stop_thread
+#     stop_thread = True
+#     return '', 204
 
-@app.route('/sweep', methods=['POST'])
-def sweep():
-    global stop_thread
-    stop_thread = True  # Ensure the live data is stopped
+# @app.route('/sweep', methods=['POST'])
+# def sweep():
+#     global stop_thread
+#     stop_thread = True  # Ensure the live data is stopped
 
-    resource_name = "USB0::0x2A8D::0x9201::MY63320688::INSTR"
-    id_query = True
-    reset = True
-    options = ""
-    driver = keysight_ktb2900.KtB2900(resource_name, id_query, reset, options)
-    data = request.json
+#     resource_name = "USB0::0x2A8D::0x9201::MY63320688::INSTR"
+#     id_query = True
+#     reset = True
+#     options = ""
+#     driver = keysight_ktb2900.KtB2900(resource_name, id_query, reset, options)
+#     data = request.json
 
-    chip_name = data['chip_name']
-    experiment_name = data['experiment_name']
-    component_name = data['component_name']
-    measurement_type = data['measurement_type']
-    working_directory = data['working_directory']
-    lower_limit = float(data['lower_limit'])
-    upper_limit = float(data['upper_limit'])
-    steps = int(data['steps'])
+#     chip_name = data['chip_name']
+#     experiment_name = data['experiment_name']
+#     component_name = data['component_name']
+#     measurement_type = data['measurement_type']
+#     working_directory = data['working_directory']
+#     lower_limit = float(data['lower_limit'])
+#     upper_limit = float(data['upper_limit'])
+#     steps = int(data['steps'])
     
-    # Generate sweep list
-    sweep = generate_list(lower_limit, upper_limit, steps)
+#     # Generate sweep list
+#     sweep = generate_list(lower_limit, upper_limit, steps)
 
-    # Simulate the driver setup and measurement
-    # Replace with actual driver code
-    ModelNo = "B2901A"
-    set_measurement_limit = 0.01
+#     # Simulate the driver setup and measurement
+#     # Replace with actual driver code
+#     ModelNo = "B2901A"
+#     set_measurement_limit = 0.01
 
-    sweep_value = []
+#     sweep_value = []
 
-    for i in range(len(sweep)):
-        driver.outputs[0].voltage.auto_range_enabled = False
-        driver.outputs[0].voltage.level = sweep[i]
-        # driver.trigger.initiate("1")
-        driver.measurements.initiate("1")
-        dResult = driver.measurements.fetch_array_data((keysight_ktb2900.MeasurementFetchType.CURRENT), "1")
+#     for i in range(len(sweep)):
+#         driver.outputs[0].voltage.auto_range_enabled = False
+#         driver.outputs[0].voltage.level = sweep[i]
+#         # driver.trigger.initiate("1")
+#         driver.measurements.initiate("1")
+#         dResult = driver.measurements.fetch_array_data((keysight_ktb2900.MeasurementFetchType.CURRENT), "1")
         
-        # Extract the single value from dResult, convert it to a regular float, and round it to 4 decimal places
-        value = float(dResult[0])
-        sweep_value.append(value)
+#         # Extract the single value from dResult, convert it to a regular float, and round it to 4 decimal places
+#         value = float(dResult[0])
+#         sweep_value.append(value)
 
-    # Save the plot
-    plt.rcParams['font.family'] = 'Lucida Console'
-    title_font_size = 12
-    axis_label_font_size = 10
-    axis_value_font_size = 8
-    marker_size = 1
-    marker_opacity = 0.75
-    line_thickness = 1
-    dpi_value = 150
+#     # Save the plot
+#     plt.rcParams['font.family'] = 'Lucida Console'
+#     title_font_size = 12
+#     axis_label_font_size = 10
+#     axis_value_font_size = 8
+#     marker_size = 1
+#     marker_opacity = 0.75
+#     line_thickness = 1
+#     dpi_value = 150
 
-    plt.figure(figsize=(5, 5), dpi=dpi_value)
-    plt.plot(sweep, sweep_value, marker='o', linestyle='-', markersize=marker_size, alpha=marker_opacity, color='b', linewidth=line_thickness)
-    plt.xlabel('Sweep (Volts)', fontsize=axis_label_font_size)
-    plt.ylabel('Current (Amps)', fontsize=axis_label_font_size)
-    plt.title('Sweep Input vs Current', fontsize=title_font_size)
-    plt.xticks(fontsize=axis_value_font_size)
-    plt.yticks(fontsize=axis_value_font_size)
-    plt.grid(True)
+#     plt.figure(figsize=(5, 5), dpi=dpi_value)
+#     plt.plot(sweep, sweep_value, marker='o', linestyle='-', markersize=marker_size, alpha=marker_opacity, color='b', linewidth=line_thickness)
+#     plt.xlabel('Sweep (Volts)', fontsize=axis_label_font_size)
+#     plt.ylabel('Current (Amps)', fontsize=axis_label_font_size)
+#     plt.title('Sweep Input vs Current', fontsize=title_font_size)
+#     plt.xticks(fontsize=axis_value_font_size)
+#     plt.yticks(fontsize=axis_value_font_size)
+#     plt.grid(True)
 
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    plot_filename = f"{chip_name}_{experiment_name}_{component_name}_{measurement_type}_{timestamp}.jpg"
-    plot_path = os.path.join(app.config['UPLOAD_FOLDER'], plot_filename)
-    plt.savefig(plot_path)
-    plt.close()
+#     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+#     plot_filename = f"{chip_name}_{experiment_name}_{component_name}_{measurement_type}_{timestamp}.jpg"
+#     plot_path = os.path.join(app.config['UPLOAD_FOLDER'], plot_filename)
+#     plt.savefig(plot_path)
+#     plt.close()
 
-    # Save the CSV file
-    csv_filename = f"{chip_name}_{experiment_name}_{component_name}_{measurement_type}_{timestamp}.csv"
-    csv_path = os.path.join(working_directory, csv_filename)
-    df = pd.DataFrame({'sweep': sweep, 'sweep_value': sweep_value})
-    df.to_csv(csv_path, index=False)
+#     # Save the CSV file
+#     csv_filename = f"{chip_name}_{experiment_name}_{component_name}_{measurement_type}_{timestamp}.csv"
+#     csv_path = os.path.join(working_directory, csv_filename)
+#     df = pd.DataFrame({'sweep': sweep, 'sweep_value': sweep_value})
+#     df.to_csv(csv_path, index=False)
 
-    return jsonify(plot_url=f"/uploads/{plot_filename}")
+#     return jsonify(plot_url=f"/uploads/{plot_filename}")
 
-@app.route('/uploads/<filename>')
-def send_plot(filename):
-    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
+# @app.route('/uploads/<filename>')
+# def send_plot(filename):
+#     return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
-def generate_data(set_source):
-    global stop_thread, latest_value
+# def generate_data(set_source):
+#     global stop_thread, latest_value
 
-    # resource name should be extracted from NI Visa app
-    resource_name = "USB0::0x2A8D::0x9201::MY63320688::INSTR"
-    id_query = True
-    reset = True
-    options = ""
-    driver = keysight_ktb2900.KtB2900(resource_name, id_query, reset, options)
+#     # resource name should be extracted from NI Visa app
+#     resource_name = "USB0::0x2A8D::0x9201::MY63320688::INSTR"
+#     id_query = True
+#     reset = True
+#     options = ""
+#     driver = keysight_ktb2900.KtB2900(resource_name, id_query, reset, options)
 
-    set_measurement_limit = 0.01 
-    ModelNo = "B2901A"  # Example model number
+#     set_measurement_limit = 0.01 
+#     ModelNo = "B2901A"  # Example model number
 
-    driver.outputs[0].voltage.auto_range_enabled = False
-    driver.outputs[0].voltage.level = set_source
-    ModelNo = driver.identity.instrument_model
-    if (ModelNo == "B2901A" or ModelNo == "B2902A" or ModelNo == "B2911A" or ModelNo == "B2912A" or ModelNo == "B2901B" or ModelNo == "B2902B" or ModelNo == "B2911B" or ModelNo == "B2912B"):
-        driver.measurements[0].current.auto_range_enabled = False; #Supported Models for this property: B2901A|B, B2902A|B, B2911A|B, B2912A|B
-        driver.measurements[0].current.compliance_value = set_measurement_limit
-        driver.outputs[0].enabled = True
+#     driver.outputs[0].voltage.auto_range_enabled = False
+#     driver.outputs[0].voltage.level = set_source
+#     ModelNo = driver.identity.instrument_model
+#     if (ModelNo == "B2901A" or ModelNo == "B2902A" or ModelNo == "B2911A" or ModelNo == "B2912A" or ModelNo == "B2901B" or ModelNo == "B2902B" or ModelNo == "B2911B" or ModelNo == "B2912B"):
+#         driver.measurements[0].current.auto_range_enabled = False; #Supported Models for this property: B2901A|B, B2902A|B, B2911A|B, B2912A|B
+#         driver.measurements[0].current.compliance_value = set_measurement_limit
+#         driver.outputs[0].enabled = True
 
-    while not stop_thread:
-        driver.trigger.initiate("1")
-        dResult = driver.measurements.fetch_array_data((keysight_ktb2900.MeasurementFetchType.CURRENT), "1")
-        converted_value = convert_number(dResult[0])
-        with app.app_context():
-            latest_value = converted_value
-            socketio.emit('update_value', {'value': latest_value})
-        time.sleep(0.1)
+#     while not stop_thread:
+#         driver.trigger.initiate("1")
+#         dResult = driver.measurements.fetch_array_data((keysight_ktb2900.MeasurementFetchType.CURRENT), "1")
+#         converted_value = convert_number(dResult[0])
+#         with app.app_context():
+#             latest_value = converted_value
+#             socketio.emit('update_value', {'value': latest_value})
+#         time.sleep(0.1)
 
 if __name__ == '__main__':
     socketio.run(app, debug=True)

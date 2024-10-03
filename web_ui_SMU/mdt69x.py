@@ -2,6 +2,8 @@ import serial
 import io
 import threading
 
+serial_lock = threading.Lock()
+
 class RangeError(Exception):
     """Parameter out of range"""
     def __init__(self, message):
@@ -42,15 +44,14 @@ class Thorpezo():
         self.ser.close()
 
     def msg(self, msg):
-        self.buf.write(msg+'\n')
-        if self.readresponse:
-            lines=self.buf.readlines()
-            lines = [line.strip() for line in lines if not line.strip() == '']
-            if lines[-1]=='>':
-                lines = lines[:-1]
-            return lines
-        else:
-            return ""
+        with serial_lock:
+            self.buf.write(msg+'\n')
+            if self.readresponse:
+                lines=self.buf.readlines()
+                lines = [line.strip() for line in lines if not line.strip() == '']
+                if lines[-1]!='>':
+                    lines = lines[:-1]
+                return lines
 
 class PCbase():
     def __init__(self,dev):
@@ -82,15 +83,14 @@ class PCbase():
                 line=self.buf.readline()
 
     def msg(self, msg):
-        self.buf.write(msg+'\n')
-        if self.readresponse:
-            lines=self.buf.readlines()
-            lines = [line.strip() for line in lines if not line.strip() == '']
-            if lines[-1]=='>':
-                lines = lines[:-1]
-            return lines
-        else:
-            return ['']
+        with serial_lock:
+            self.buf.write(msg+'\n')
+            if self.readresponse:
+                lines=self.buf.readlines()
+                lines = [line.strip() for line in lines if not line.strip() == '']
+                if lines[-1]!='>':
+                    lines = lines[:-1]
+                return lines
     
     def get_commands(self):
         """List the available commands"""
