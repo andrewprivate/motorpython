@@ -40,7 +40,7 @@
             padding: 10px;
             width: 90%;
             text-align: center;
-            font-size: 2.5em !important; /* Increase font size for Live Value */
+            font-size: 2.5em !important; 
             font-weight: 600;
         }
         .button {
@@ -70,10 +70,6 @@
             font-size: 1em;
             margin: 5px;
         }
-        img {
-            width: 80%;
-            height: auto;
-        }
         .slider-container {
             display: flex;
             flex-direction: column;
@@ -95,209 +91,154 @@
             align-items: center;
             margin-bottom: 10px; 
         }
-        .tab {
-            overflow: hidden;
-            border-bottom: 1px solid #ccc;
-            background-color: #f1f1f1;
-        }
-        .tab button {
-            background-color: inherit;
-            float: left;
-            border: none;
-            outline: none;
-            cursor: pointer;
-            padding: 14px 16px;
-            transition: 0.3s;
-        }
-        .tab button:hover {
-            background-color: #ddd;
-        }
-        .tab button.active {
-            background-color: #ccc;
-        }
-        .tabcontent {
-            display: none;
-            padding: 6px 12px;
-            border-top: none;
-        }
-        .tabcontent.active {
-            display: block;
-        }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 </head>
 <body>
-    <div class="tab">
-        <button class="tablinks" onclick="openTab(event, 'Data')">Data</button>
-        <button class="tablinks" onclick="openTab(event, 'Camera')">Camera</button>
-    </div>
-    <div id="Data" class="tabcontent active">
-        <div class="container">
-            <div class="column column-1">
-                <div class="section">
-                    <div class="label-text" id="title" style="text-align: center;">Live Value</div>
-                    <input type="text" class="live-value-textbox" id="value" value="" readonly>
-                    <label class="label-text" for="source-voltage">Source Voltage</label>
-                    <input type="number" class="input-box" id="source-voltage" value="0">
-                    <button class="button" id="start-button">Start</button>
-                    <button class="button" id="stop-button">Stop</button>
-                </div>
-                <div class="divider"></div>
-                <div class="section">
-                    <div class="input-group">
-                        <label class="label-text">
-                            Chip Name
-                            <input type="text" class="input-box" id="chip-name" disabled>
-                            <input type="checkbox" id="chip-name-toggle" onchange="toggleInput('chip-name')">
-                        </label>
-                        <label class="label-text">
-                            Experiment Name
-                            <input type="text" class="input-box" id="experiment-name" disabled>
-                            <input type="checkbox" id="experiment-name-toggle" onchange="toggleInput('experiment-name')">
-                        </label>
-                        <label class="label-text">
-                            Component Name
-                            <input type="text" class="input-box" id="component-name" disabled>
-                            <input type="checkbox" id="component-name-toggle" onchange="toggleInput('component-name')">
-                        </label>
-                        <label class="label-text">
-                            Measurement Type
-                            <input type="text" class="input-box" id="measurement-type" disabled>
-                            <input type="checkbox" id="measurement-type-toggle" onchange="toggleInput('measurement-type')">
-                        </label>
-                        <label class="label-text">
-                            Working Directory
-                            <input type="text" class="input-box" id="working-directory" disabled>
-                            <input type="checkbox" id="working-directory-toggle" onchange="toggleInput('working-directory')">
-                        </label>
-                    </div>
-                    <div class="divider"></div>
-                    <div class="input-group">
-                        <label class="label-text">
-                            Lower Limit (Volts)
-                            <input type="number" class="input-box" id="lower-limit">
-                        </label>
-                        <label class="label-text">
-                            Upper Limit (Volts)
-                            <input type="number" class="input-box" id="upper-limit">
-                        </label>
-                        <label class="label-text">
-                            Steps
-                            <input type="number" class="input-box" id="steps">
-                        </label>
-                        <button class="button" id="sweep-button">Sweep</button>
-                    </div>
-                </div>
-                <div class="divider"></div>
-                <div class="section" id="plot-section">
-                    <!-- Plot will be displayed here -->
-                </div>
+    <button style="padding: 10px; cursor: pointer; margin-left: 20px;" onclick="openCameraFeed()">View Live Camera Feed</button>
+    <div class="container">
+        <div class="column">
+            <div class="section">
+                <div class="label-text" id="title" style="text-align: center;">Live Value</div>
+                <input type="text" class="live-value-textbox" id="value" value="" readonly>
+                <label class="label-text" for="source-voltage">Source Voltage</label>
+                <input type="number" class="input-box" id="source-voltage" value="0">
+                <button class="button" id="start-button">Start</button>
+                <button class="button" id="stop-button">Stop</button>
             </div>
-            <div class="column column-2">
-                <div class="section">
-                    <div class="label-text" id="title" style="text-align: center;">Power Meter</div>
-                    <input type="text" class="input-box" id="power-meter" value="" readonly>
-                    <button class="button" id="pm-start-button">Start</button>
-                    <button class="button" id="pm-stop-button">Stop</button>
-                    <div class="divider"></div>
-                    <button class="button" id="pm-start-record-button">Start Recording</button>
-                    <button class="button" id="pm-stop-record-button">Stop Recording</button>
-                    <div class="divider"></div>
-                    <button class="button" id="pm-zero-button">Zero</button>
-                    <div class="divider"></div>
-                    <div class="label-text" id="title" style="text-align: center;">Current Wavelength</div>
-                    <input type="text" class="input-box" id="pm-wavelength" value="" readonly>
-                    <div class="label-text" id="title" style="text-align: center;">Set New Wavelength (nm)</div>
-                    <input type="text" class="input-box" id="new-pm-wavelength" value="">
-                    <button class="button" id="set-wavelength-button">Set</button>
-                    <div class="divider"></div>
-                </div>
-            </div>
-            <div class="column column-3">
+            <div class="divider"></div>
+            <div class="section">
                 <div class="input-group">
-                    <div class="input-group-horizontal">
-                        <label class="label-text" for="piezo_a" style="font-size: 1.5em;">Piezo A: </label>
-                        <button class="button" id="a_connect">Connect</button>
-                    </div>
-                    <div class="outline">
-                        <div class="section">
-                            <label class="label-text" for="a_x">X: </label>
-                            <div class="input-group-horizontal">
-                                <input type="number" step="0.01" class="input-box" id="a_x" max="75" value="0">
-                                <button class="button" id="a_x_ground">Ground</button>
-                            </div>
-                            <label class="label-text" for="a_y">Y: </label>
-                            <div class="input-group-horizontal">
-                                <input type="number" step="0.01" class="input-box" id="a_y" max="75" value="0">
-                                <button class="button" id="a_y_ground">Ground</button>
-                            </div>
-                            <label class="label-text" for="a_z">Z: </label>
-                            <div class="input-group-horizontal">
-                                <input type="number" step="0.01" class="input-box" id="a_z" max="75" value="0">
-                                <button class="button" id="a_z_ground">Ground</button>
-                            </div>
-                            <button class="button" id="a_ground_all">Ground All A</button>
+                    <label class="label-text">
+                        Chip Name
+                        <input type="text" class="input-box" id="chip-name" disabled>
+                        <input type="checkbox" id="chip-name-toggle" onchange="toggleInput('chip-name')">
+                    </label>
+                    <label class="label-text">
+                        Experiment Name
+                        <input type="text" class="input-box" id="experiment-name" disabled>
+                        <input type="checkbox" id="experiment-name-toggle" onchange="toggleInput('experiment-name')">
+                    </label>
+                    <label class="label-text">
+                        Component Name
+                        <input type="text" class="input-box" id="component-name" disabled>
+                        <input type="checkbox" id="component-name-toggle" onchange="toggleInput('component-name')">
+                    </label>
+                    <label class="label-text">
+                        Measurement Type
+                        <input type="text" class="input-box" id="measurement-type" disabled>
+                        <input type="checkbox" id="measurement-type-toggle" onchange="toggleInput('measurement-type')">
+                    </label>
+                    <label class="label-text">
+                        Working Directory
+                        <input type="text" class="input-box" id="working-directory" disabled>
+                        <input type="checkbox" id="working-directory-toggle" onchange="toggleInput('working-directory')">
+                    </label>
+                </div>
+                <div class="divider"></div>
+                <div class="input-group">
+                    <label class="label-text">
+                        Lower Limit (Volts)
+                        <input type="number" class="input-box" id="lower-limit">
+                    </label>
+                    <label class="label-text">
+                        Upper Limit (Volts)
+                        <input type="number" class="input-box" id="upper-limit">
+                    </label>
+                    <label class="label-text">
+                        Steps
+                        <input type="number" class="input-box" id="steps">
+                    </label>
+                    <button class="button" id="sweep-button">Sweep</button>
+                </div>
+            </div>
+            <div class="divider"></div>
+            <div class="section" id="plot-section">
+                <!-- Plot will be displayed here -->
+            </div>
+        </div>
+        <div class="column">
+            <div class="section">
+                <div class="label-text" id="title" style="text-align: center;">Power Meter</div>
+                <input type="text" class="input-box" id="power-meter" value="" readonly>
+                <button class="button" id="pm-start-button">Start</button>
+                <button class="button" id="pm-stop-button">Stop</button>
+                <div class="divider"></div>
+                <button class="button" id="pm-start-record-button">Start Recording</button>
+                <button class="button" id="pm-stop-record-button">Stop Recording</button>
+                <div class="divider"></div>
+                <button class="button" id="pm-zero-button">Zero</button>
+                <div class="divider"></div>
+                <div class="label-text" id="title" style="text-align: center;">Current Wavelength</div>
+                <input type="text" class="input-box" id="pm-wavelength" value="" readonly>
+                <div class="label-text" id="title" style="text-align: center;">Set New Wavelength (nm)</div>
+                <input type="text" class="input-box" id="new-pm-wavelength" value="">
+                <button class="button" id="set-wavelength-button">Set</button>
+                <div class="divider"></div>
+            </div>
+        </div>
+        <div class="column">
+            <div class="input-group">
+                <div class="input-group-horizontal">
+                    <label class="label-text" for="piezo_a" style="font-size: 1.5em;">Piezo A: </label>
+                    <button class="button" id="a_connect">Connect</button>
+                </div>
+                <div class="outline">
+                    <div class="section">
+                        <label class="label-text" for="a_x">X: </label>
+                        <div class="input-group-horizontal">
+                            <input type="number" step="0.01" class="input-box" id="a_x" max="75" value="0">
+                            <button class="button" id="a_x_ground">Ground</button>
                         </div>
-                    </div>
-                    <br>
-                    <div class="input-group-horizontal">
-                        <label class="label-text" for="piezo_b" style="font-size: 1.5em;">Piezo B: </label>
-                        <button class="button" id="b_connect">Connect</button>
-                    </div>
-                    <div class="outline">
-                        <div class="section">
-                            <label class="label-text" for="b_x">X: </label>
-                            <div class="input-group-horizontal">
-                                <input type="number" class="input-box" id="b_x" max="75" value="0">
-                                <button class="button" id="b_x_ground">Ground</button>
-                            </div>
-                            <label class="label-text" for="b_y">Y: </label>
-                            <div class="input-group-horizontal">
-                                <input type="number" class="input-box" id="b_y" max="75" value="0">
-                                <button class="button" id="b_y_ground">Ground</button>
-                            </div>
-                            <label class="label-text" for="b_z">Z: </label>
-                            <div class="input-group-horizontal">
-                                <input type="number" class="input-box" id="b_z" max="75" value="0">
-                                <button class="button" id="b_z_ground">Ground</button>
-                            </div>
-                            <button class="button" id="b_ground_all">Ground All B</button>
+                        <label class="label-text" for="a_y">Y: </label>
+                        <div class="input-group-horizontal">
+                            <input type="number" step="0.01" class="input-box" id="a_y" max="75" value="0">
+                            <button class="button" id="a_y_ground">Ground</button>
                         </div>
+                        <label class="label-text" for="a_z">Z: </label>
+                        <div class="input-group-horizontal">
+                            <input type="number" step="0.01" class="input-box" id="a_z" max="75" value="0">
+                            <button class="button" id="a_z_ground">Ground</button>
+                        </div>
+                        <button class="button" id="a_ground_all">Ground All A</button>
+                    </div>
+                </div>
+                <br>
+                <div class="input-group-horizontal">
+                    <label class="label-text" for="piezo_b" style="font-size: 1.5em;">Piezo B: </label>
+                    <button class="button" id="b_connect">Connect</button>
+                </div>
+                <div class="outline">
+                    <div class="section">
+                        <label class="label-text" for="b_x">X: </label>
+                        <div class="input-group-horizontal">
+                            <input type="number" class="input-box" id="b_x" max="75" value="0">
+                            <button class="button" id="b_x_ground">Ground</button>
+                        </div>
+                        <label class="label-text" for="b_y">Y: </label>
+                        <div class="input-group-horizontal">
+                            <input type="number" class="input-box" id="b_y" max="75" value="0">
+                            <button class="button" id="b_y_ground">Ground</button>
+                        </div>
+                        <label class="label-text" for="b_z">Z: </label>
+                        <div class="input-group-horizontal">
+                            <input type="number" class="input-box" id="b_z" max="75" value="0">
+                            <button class="button" id="b_z_ground">Ground</button>
+                        </div>
+                        <button class="button" id="b_ground_all">Ground All B</button>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    <div id="Camera" class="tabcontent">
-        <div class="section">
-            <div class="label-text" id="title" style="text-align: center;">Live Camera Feed</div>
-            <img id="liveCamera" src="/video_feed" alt="Live Camera Feed">
-            <div class="slider-container">
-                <label class="label-text" for="brightness-slider">Brightness</label>
-                <input type="range" id="brightness-slider" class="slider" min="0" max="200" value="100">
-                <label class="label-text" for="contrast-slider">Contrast</label>
-                <input type="range" id="contrast-slider" class="slider" min="0" max="200" value="100">
-            </div>
-        </div>
-    </div>
-
     <script>
         const socket = io();
         let pmValues = []; // stores power meter output
         let record = false;
 
-        function openTab(event, tabName) {
-            var i, tabcontent, tablinks;
-            tabcontent = document.getElementsByClassName("tabcontent");
-            for (i = 0; i < tabcontent.length; i++) {
-                tabcontent[i].classList.remove("active");
-            }
-            tablinks = document.getElementsByClassName("tablinks");
-            for (i = 0; i < tablinks.length; i++) {
-                tablinks[i].classList.remove("active");
-            }
-            document.getElementById(tabName).classList.add("active");
-            event.currentTarget.classList.add("active");
+        // open the live camera feed in a new window
+        function openCameraFeed() {
+            window.open('/camera', '_blank', 'width=800,height=600');
         }
 
         function downloadCSV(data) {
@@ -504,23 +445,6 @@
             .catch(error => console.error('Error:', error));
         });
 
-        document.getElementById('brightness-slider').addEventListener('input', function() {
-            const brightnessValue = this.value;
-            applyFilters();
-        });
-
-        document.getElementById('contrast-slider').addEventListener('input', function() {
-            const contrastValue = this.value;
-            applyFilters();
-        });
-
-        function applyFilters() {
-            const brightnessValue = document.getElementById('brightness-slider').value;
-            const contrastValue = document.getElementById('contrast-slider').value;
-            const liveCamera = document.getElementById('liveCamera');
-            liveCamera.style.filter = `brightness(${brightnessValue}%) contrast(${contrastValue}%)`;
-        }
-
         // Ground buttons
         document.getElementById('a_x_ground').addEventListener('click', function() {
             setGround('a_x');
@@ -644,6 +568,6 @@
                 });
             });
         });
-        </script>
+    </script>
 </body>
 </html>

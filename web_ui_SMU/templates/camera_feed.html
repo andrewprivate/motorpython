@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Live Camera Feed</title>
+    <style>
+        .section {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: black;
+            font-size: 1em;
+            text-align: center;
+        }
+        .slider-container {
+            display: flex;
+            flex-direction: column;
+            width: 50%;
+            margin-top: 10px;
+        }
+        .label-text {
+            font-size: 1em;
+            margin: 5px;
+        }
+        img {
+            width: 80%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="section">
+        <div class="label-text" id="title">Live Camera Feed</div>
+        <img id="liveCamera" src="/video_feed" alt="Live Camera Feed">
+        <div class="slider-container">
+            <label class="label-text" for="brightness-slider">Brightness</label>
+            <input type="range" id="brightness-slider" class="slider" min="0" max="200" value="100">
+            <label class="label-text" for="contrast-slider">Contrast</label>
+            <input type="range" id="contrast-slider" class="slider" min="0" max="200" value="100">
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('brightness-slider').addEventListener('input', function() {
+            const brightnessValue = this.value;
+            applyFilters();
+        });
+
+        document.getElementById('contrast-slider').addEventListener('input', function() {
+            const contrastValue = this.value;
+            applyFilters();
+        });
+
+        function applyFilters() {
+            const brightnessValue = document.getElementById('brightness-slider').value;
+            const contrastValue = document.getElementById('contrast-slider').value;
+            const liveCamera = document.getElementById('liveCamera');
+            liveCamera.style.filter = `brightness(${brightnessValue}%) contrast(${contrastValue}%)`;
+        }
+    </script>
+</body>
+</html>

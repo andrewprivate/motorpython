@@ -35,7 +35,6 @@ rm = pyvisa.ResourceManager()
 print(rm.list_resources())
 
 def extract_voltage(voltage_response):
-    """Extracts and converts voltage value from the response list."""
     print(f"Raw voltage response: {voltage_response}")  # Example output: ['[ 42.98]', '*']
     
     for item in voltage_response:
@@ -141,6 +140,10 @@ def generate_list(start, end, n_step):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/camera')
+def camera():
+    return render_template('camera_feed.html')
 
 @app.route('/video_feed')
 def video_feed():
