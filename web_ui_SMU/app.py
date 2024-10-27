@@ -1,4 +1,4 @@
-from flask import Flask, Response, render_template, request, jsonify, send_from_directory
+from flask import Flask, render_template, request, jsonify, send_from_directory
 from flask_socketio import SocketIO, emit
 import threading
 import time
@@ -7,116 +7,18 @@ import keysight_ktb2900
 import numpy as np # For keysight_ktb2900 arrays
 from PIL import Image
 import cv2
-import matplotlib
-matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pandas as pd
 import os
-import pyvisa
 from datetime import datetime
-from mdt69x import MDT693B
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
 app.config['UPLOAD_FOLDER'] = ''
 socketio = SocketIO(app)
 
-# Global variables
-stop_pm_thread = False
-stop_piezo_thread_a = False
-stop_piezo_thread_b = False
 stop_thread = False
-piezo_controller_a = None
-piezo_controller_b = None
-
 latest_value = "ERROR"  # Placeholder for the latest value
-
-rm = pyvisa.ResourceManager()
-print(rm.list_resources())
-
-def extract_voltage(voltage_response):
-    print(f"Raw voltage response: {voltage_response}")  # Example output: ['[ 42.98]', '*']
-    
-    for item in voltage_response:
-        print(f"Checking item: {item}")  # Checking item: [ 42.98]
-        if isinstance(item, str) and item.startswith('[') and item.endswith(']'):
-            print(float(item.strip(' []')))
-            return float(item.strip(' []')) # Convert to float and remove brackets and spaces
-    
-    print("Error: No valid voltage data found.")
-    return None
-
-
-def connect_piezo_controller(piezo):
-    if(piezo == 'a'):
-        piezo_controller = MDT693B("/dev/cu.usbmodem2403278983_062")
-        global piezo_controller_a
-        piezo_controller_a = piezo_controller
-        print('connected to piezo a...')
-    elif(piezo == 'b'):
-        piezo_controller = MDT693B("some other port")
-        global piezo_controller_b
-        piezo_controller_b = piezo_controller
-        print('connected to piezo b...')
-    return piezo_controller
-
-def fetch_piezo_controller_data(piezo):
-    if(piezo == 'a'):
-        print('fetching piezo a data...')
-        piezo_controller = connect_piezo_controller('a')
-    elif(piezo == 'b'):
-        print('fetching piezo b data...')
-        piezo_controller = connect_piezo_controller('b')
-
-    global stop_piezo_thread_a, stop_piezo_thread_b
-    if (piezo == 'a' and stop_piezo_thread_a) or (piezo == 'b' and stop_piezo_thread_b):
-        return
-    
-    print('extracting voltages...')
-    x_volt = float(extract_voltage(piezo_controller.get_xvolt()))
-    time.sleep(0.1)
-    y_volt = float(extract_voltage(piezo_controller.get_yvolt()))
-    time.sleep(0.1)
-    z_volt = float(extract_voltage(piezo_controller.get_zvolt()))
-    time.sleep(0.1)
-
-    with app.app_context():
-        socket_call = 'update_piezo_value_'+piezo
-        socketio.emit(socket_call, {'x_value': x_volt, 'y_value': y_volt, 'z_value': z_volt})
-
-def connect_power_meter():
-    visa_address = 'USB0::0x1313::0x8075::P5006297::0::INSTR'
-    power_meter = rm.open_resource(visa_address)
-    return power_meter
-
-def fetch_power_meter_data():
-    power_meter = connect_power_meter()
-
-    global stop_pm_thread
-    while not stop_pm_thread:
-        power_value = power_meter.query('MEAS:POW?')
-        converted_power = float(power_value)*1e6
-        fomatted_power = f"{converted_power:.4f} µW"
-        wavelength = power_meter.query('SENSE:CORR:WAV?')
-        formatted_wavelength = f"{wavelength} nm"
-        with app.app_context():
-            socketio.emit('update_pm_value', {'value': fomatted_power})
-            socketio.emit('update_pm_wavelength', {'value': formatted_wavelength})
-        time.sleep(0.1)
-
-# generates frames for the video feed
-def gen_frames():
-    camera = cv2.VideoCapture(0)
-
-    while True:
-        success, frame = camera.read() 
-        if not success:
-            break
-        else:
-            success, buffer = cv2.imencode('.jpg', frame)
-            frame = buffer.tobytes()
-            yield (b'--frame\r\n'
-                   b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
 def convert_number(number):
     units = [
@@ -141,104 +43,6 @@ def generate_list(start, end, n_step):
 def index():
     return render_template('index.html')
 
-@app.route('/camera')
-def camera():
-    return render_template('camera_feed.html')
-
-@app.route('/video_feed')
-def video_feed():
-    return Response(gen_frames(),
-                    mimetype='multipart/x-mixed-replace; boundary=frame')
-
-@app.route('/connect_piezo_a', methods=['POST'])
-def connect_piezo_a():
-    global stop_piezo_thread_a
-    stop_piezo_thread_a = False
-    print('connecting piezo a')
-
-    piezo_thread_a = threading.Thread(target=fetch_piezo_controller_data('a'))
-    piezo_thread_a.start()
-    return '', 204
-
-@app.route('/disconnect_piezo_a', methods=['POST'])
-def disconnect_piezo_a():
-    global stop_piezo_thread_a, piezo_controller_a
-    piezo_controller_a.close()
-    stop_piezo_thread_a = True
-    piezo_controller_a = None
-    return '', 204
-
-@app.route('/connect_piezo_b', methods=['POST'])
-def connect_piezo_b():
-    global stop_piezo_thread_b
-    stop_piezo_thread_b = False
-
-    piezo_thread_b = threading.Thread(target=fetch_piezo_controller_data('b'))
-    piezo_thread_b.start()
-    return '', 204
-
-@app.route('/disconnect_piezo_b', methods=['POST'])
-def disconnect_piezo_b():
-    global stop_piezo_thread_b
-    stop_piezo_thread_b = True
-    return '', 204
-
-@app.route('/set_voltage', methods=['POST'])
-def set_voltage():
-    data = request.get_json()
-    axis = data.get('axis').split('_')[1]
-    voltage = float(data.get('voltage'))
-    piezo = data.get('axis').split('_')[0]
-    print("axis: ", axis)
-    print("voltage: ", voltage)
-    if axis is not None and voltage is not None:    
-        if piezo == 'a':
-            piezo_controller = piezo_controller_a
-        elif piezo == 'b':
-            piezo_controller = piezo_controller_b
-        if axis == 'x':
-            piezo_controller.set_xvolt(voltage)
-            print("NEW X: ",piezo_controller.get_xvolt())
-        elif axis == 'y':
-            piezo_controller.set_yvolt(voltage)
-        elif axis == 'z':
-            piezo_controller.set_zvolt(voltage)
-    return '', 204
-
-
-@app.route('/start_pm', methods=['POST'])
-def start_pm():
-    global stop_pm_thread
-    stop_pm_thread = False
-
-    pm_thread = threading.Thread(target=fetch_power_meter_data)
-    pm_thread.start()
-    return '', 204
-
-@app.route('/stop_pm', methods=['POST'])
-def stop_pm():
-    global stop_pm_thread
-    stop_pm_thread = True
-    return '', 204
-
-@app.route('/zero_pm', methods=['POST'])
-def zero_pm():
-    power_meter = connect_power_meter()
-    power_meter.write('SYST:TARE') # zeros the power meter?
-    return '', 204
-
-@app.route('/set_wavelength', methods=['POST'])
-def set_wavelength():
-    data = request.get_json()
-    new_wavelength = data.get('wavelength')
-    
-    if new_wavelength is not None:
-        power_meter = connect_power_meter()
-        power_meter.write(f'SENSE:CORR:WAV {new_wavelength}')
-        return '', 204
-    else:
-        return 'Invalid wavelength value', 400
-
 @app.route('/start', methods=['POST'])
 def start():
     global stop_thread
@@ -249,7 +53,6 @@ def start():
 
     thread = threading.Thread(target=generate_data, args=(source_voltage,))
     thread.start()
-
     return '', 204
 
 @app.route('/stop', methods=['POST'])
@@ -340,14 +143,14 @@ def send_plot(filename):
 def generate_data(set_source):
     global stop_thread, latest_value
 
-    # resource name should be extracted from NI Visa app
+    # Simulated driver setup (replace with actual driver setup)
     resource_name = "USB0::0x2A8D::0x9201::MY63320688::INSTR"
     id_query = True
     reset = True
     options = ""
     driver = keysight_ktb2900.KtB2900(resource_name, id_query, reset, options)
 
-    set_measurement_limit = 0.01 
+    set_measurement_limit = 0.01  # Example value for set_measurement_limit
     ModelNo = "B2901A"  # Example model number
 
     driver.outputs[0].voltage.auto_range_enabled = False
@@ -359,6 +162,7 @@ def generate_data(set_source):
         driver.outputs[0].enabled = True
 
     while not stop_thread:
+        # Simulate fetching data (replace with actual driver data fetch)
         driver.trigger.initiate("1")
         dResult = driver.measurements.fetch_array_data((keysight_ktb2900.MeasurementFetchType.CURRENT), "1")
         converted_value = convert_number(dResult[0])
